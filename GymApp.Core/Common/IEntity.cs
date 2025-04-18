@@ -1,10 +1,23 @@
+using System;
+using System.Collections.Generic;
 
-namespace GymApp.Core.Common;
-
-public interface IEntity<TId>
+namespace GymApp.Core.Common
 {
-    TId Id { get; set; }
-    DateTime CreatedAt { get; set; }
-    DateTime? ModifiedAt { get; set; }
-    bool IsDeleted { get; set; }
+    public interface IEntity
+    {
+        object Id { get; }
+        DateTime CreatedAt { get; }
+        DateTime? ModifiedAt { get; }
+        bool IsDeleted { get; }
+        IReadOnlyCollection<object> DomainEvents { get; }
+        void ClearDomainEvents();
+    }
+
+    public interface IEntity<TId> : IEntity
+    {
+        new TId Id { get; set; }
+        new DateTime CreatedAt { get; set; }
+        new DateTime? ModifiedAt { get; set; }
+        new bool IsDeleted { get; set; }
+    }
 }

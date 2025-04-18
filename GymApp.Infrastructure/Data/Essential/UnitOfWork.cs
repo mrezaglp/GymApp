@@ -1,46 +1,54 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using GymApp.Core.Common;
 using GymApp.Core.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using GymApp.Infrastructure.Data;
+using GymApp.Infrastructure.Repositories;
 
-namespace GymApp.Infrastructure.Data;
-
-public class UnitOfWork : IUnitOfWork
+namespace GymApp.Infrastructure.Data
 {
-    private readonly DbContext _dbContext;
-    private readonly Dictionary<Type, object> _repositories = new();
-    private readonly Dictionary<Type, object> _readRepositories = new();
-
-    public UnitOfWork(DbContext dbContext)
+    public class UnitOfWork : IUnitOfWork
     {
-        _dbContext = dbContext;
-    }
+        private readonly AppDbContext _dbContext;
+        private readonly Dictionary<Type, object> _readRepositories = new();
+        private readonly Dictionary<Type, object> _writeRepositories = new();
 
-    public IRepository<T, string> Repository<T>() where T : class, IEntity<string>, IAuditableEntity
-    {
-        var type = typeof(T);
-        if (!_repositories.ContainsKey(type))
+        public UnitOfWork(AppDbContext dbContext)
         {
-            var repoInstance = new EfRepository<T, string>(_dbContext);
-            _repositories[type] = repoInstance;
+            _dbContext = dbContext;
         }
 
-        return (IRepository<T, string>)_repositories[type]!;
-    }
-
-    public IReadRepository<T, string> ReadRepository<T>() where T : class, IEntity<string>, IAuditableEntity
-    {
-        var type = typeof(T);
-        if (!_readRepositories.ContainsKey(type))
+        public IReadRepository<T, TId> ReadRepository<T, TId>() where T : class, IEntity<TId>
         {
-            var readRepoInstance = new EfReadRepository<T, string>(_dbContext);
-            _readRepositories[type] = readRepoInstance;
+            var key = typeof(T);
+            if (_readRepositories.TryGetValue(key, out var repo))
+                return (IReadRepository<T, TId>)repo;
+
+            var newRepo = new EfReadRepository<T, TId>(_dbContext);
+            _readRepositories[key] = newRepo;
+            return newRepo;
         }
 
-        return (IReadRepository<T, string>)_readRepositories[type]!;
-    }
+        public IWriteRepository<T, TId> WriteRepository<T, TId>() where T : class, IEntity<TId>
+        {
+            var key = typeof(T);
+            if (_writeRepositories.TryGetValue(key, out var repo))
+                return (IWriteRepository<T, TId>)repo;
 
-    public async Task<int> SaveChangesAsync()
-    {
-        return await _dbContext.SaveChangesAsync();
+            var newRepo = new EfWriteRepository<T, TId>(_dbContext);
+            _writeRepositories[key] = newRepo;
+            return newRepo;
+        }
+
+        public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            return await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        public void Dispose()
+        {
+            _dbContext.Dispose();
+        }
     }
 }
