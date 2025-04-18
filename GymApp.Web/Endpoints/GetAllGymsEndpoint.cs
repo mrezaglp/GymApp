@@ -27,7 +27,7 @@ public class GetAllGymsEndpoint(IUnitOfWork _unitOfWork) : Endpoint<GetAllGymsRe
             return;
         }
 
-        var gyms = await _unitOfWork.Repository<Gym>().ListAsync();
+        var gyms = await _unitOfWork.ReadRepository<Gym,string>().ListAsync();
     
         await SendAsync(Result<string>.Success($"Currently '{gyms}' status!"), cancellation: ct);
     }

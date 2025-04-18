@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using FastEndpoints;
+using GymApp.Application.Specifications;
 using GymApp.Core.Enums;
 using GymApp.Core.Interfaces;
 using GymApp.Core.Models;
