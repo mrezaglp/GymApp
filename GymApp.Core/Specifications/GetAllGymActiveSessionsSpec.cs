@@ -1,10 +1,16 @@
 using Ardalis.Specification;
+using GymApp.Core.Enums;
 using GymApp.Core.Models;
+using Microsoft.EntityFrameworkCore;
 
-public class GetAllGymActiveSessionsSpec : Specification<Gym,List<GymSession>>
+namespace GymApp.Application.Specifications
 {
-    public GetAllGymActiveSessionsSpec(string id)
+    public class GetAllGymActiveSessionsSpec : Specification<Gym>
     {
-        Query.Where(g => g.Id == id);
+        public GetAllGymActiveSessionsSpec(string gymId)
+        {
+            Query.Where(g => g.Id == gymId && !g.IsDeleted)
+                 .Include(g => g.ActiveSessions.Where(s => s.SessionStatus == SessionStatusEnum.Active && !s.IsDeleted));
+        }
     }
 }

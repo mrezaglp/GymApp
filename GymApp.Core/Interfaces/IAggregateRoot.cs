@@ -1,7 +1,9 @@
-using GymApp.Core.Interfaces;
+using GymApp.Core.Common;
 
-namespace GymApp.Core.Interfaces;
-public interface IAggregateRoot : IEntity, IMuteEntity, ICreatedDateTime, ISoftDelete, IVisibility, IModifiedDateTime, IVersioned
+namespace GymApp.Core.Interfaces
 {
-    IEntity GetRootEntity();
+    public interface IAggregateRoot
+    {
+        IEntity GetRootEntity();
+    }
 }

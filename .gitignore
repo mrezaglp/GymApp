@@ -1,0 +1,36 @@
+# .NET Core
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+*.asm
+
+# NuGet Packages
+packages/
+*.nupkg
+.nuget/
+
+# VS Code
+.vscode/
+.vs/
+*.code-workspace
+
+# Temporary Files
+*.tmp
+*.bak
+*.cache
+*.log
+
+# Dependency Folders
+/GymApp.Web/bin/
+/GymApp.Web/obj/
+/GymApp.Infrastructure/bin/
+/GymApp.Infrastructure/obj/
+/GymApp.Application/bin/
+/GymApp.Application/obj/
+/GymApp.Core/bin/
+/GymApp.Core/obj/
+
+# macOS
+.DS_Store

@@ -1,53 +1,104 @@
 using Ardalis.Result;
 using FastEndpoints;
+using GymApp.Core.Enums;
 using GymApp.Core.Interfaces;
 using GymApp.Core.Models;
-using Microsoft.AspNetCore.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace GymApp.Web.Endpoints;
-
-public class CheckOutEndpoint(IUnitOfWork _unitOfWork) : Endpoint<CheckOutEndpointRequest, string>
+namespace GymApp.Web.Endpoints
 {
-    public IUnitOfWork UnitOfWork { get; } = _unitOfWork;
-
-    public override void Configure()
+    public class CheckOutEndpoint : Endpoint<CheckOutEndpointRequest, Result<string>>
     {
-        Post("/gym/checkOut");
-        AllowAnonymous();
-    }
+        private readonly IUnitOfWork _unitOfWork;
 
-    public override async Task HandleAsync(CheckOutEndpointRequest req, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(req.UserId) || string.IsNullOrWhiteSpace(req.CheckOutToken))
+        public CheckOutEndpoint(IUnitOfWork unitOfWork)
         {
-            await SendAsync(Result<string>.Error("Invalid request data"), cancellation: ct);
-            return;
+            _unitOfWork = unitOfWork;
         }
 
+        public override void Configure()
+        {
+            Post("/gym/checkOut");
+            AllowAnonymous();
+        }
 
-        // de occupy locker
-        // update gym occupancy
-        // update user status
+        public override async Task HandleAsync(CheckOutEndpointRequest req, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(req.UserId) || string.IsNullOrWhiteSpace(req.CheckInToken))
+            {
+                await SendAsync(Result<string>.Error("Invalid request data"), cancellation: ct);
+                return;
+            }
 
-        var repo = _unitOfWork.Repository<GymSession>();
-        var session = await repo.GetByIdAsync(req.UserId);
-         
-        session.CheckOutTime = DateTime.Now;
-        session.SessionStatus = Core.Enums.SessionStatusEnum.NotActive;
+            // Assume CheckInToken is GymId
+            var gymId = req.CheckInToken;
 
-        await repo.UpdateAsync(session);
-        await _unitOfWork.SaveChangesAsync();
+            // Validate user
+            var user = await _unitOfWork.ReadRepository<User, string>().GetByIdAsync(req.UserId);
+            if (user == null)
+            {
+                await SendAsync(Result<string>.Error("User not found"), cancellation: ct);
+                return;
+            }
 
-        await SendAsync(Result<string>.Success($"User '{req.UserId}' checked PUT successfully!"), cancellation: ct);
+            // Validate gym
+            var gym = await _unitOfWork.ReadRepository<Gym, string>().GetByIdAsync(gymId);
+            if (gym == null)
+            {
+                await SendAsync(Result<string>.Error("Gym not found"), cancellation: ct);
+                return;
+            }
+
+            // Check if user is checked in
+            if (user.UserStatus != UserStatusEnum.Active || user.ActiveSession == null)
+            {
+                await SendAsync(Result<string>.Error("User is not checked in"), cancellation: ct);
+                return;
+            }
+
+            // Get active session
+            var session = await _unitOfWork.ReadRepository<GymSession, string>().GetByIdAsync(user.ActiveSession.Id);
+            if (session == null || session.GymId != gymId || session.SessionStatus != SessionStatusEnum.Active)
+            {
+                await SendAsync(Result<string>.Error("No active session found for this user in this gym"), cancellation: ct);
+                return;
+            }
+
+            // Release locker if assigned
+            if (!string.IsNullOrEmpty(session.LockerId))
+            {
+                var locker = await _unitOfWork.ReadRepository<Locker, string>().GetByIdAsync(session.LockerId);
+                if (locker != null)
+                {
+                    locker.Release();
+                    await _unitOfWork.WriteRepository<Locker, string>().UpdateAsync(locker);
+                }
+            }
+
+            // Update session
+            session.CheckOut(DateTime.UtcNow);
+
+            // Update user status
+            user.CheckOut();
+
+            // Update gym occupancy
+            gym.DecrementOccupancy();
+
+            // Persist changes
+            await _unitOfWork.WriteRepository<GymSession, string>().UpdateAsync(session);
+            await _unitOfWork.WriteRepository<User, string>().UpdateAsync(user);
+            await _unitOfWork.WriteRepository<Gym, string>().UpdateAsync(gym);
+
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            await SendAsync(Result<string>.Success($"User '{req.UserId}' checked out successfully!"), cancellation: ct);
+        }
+    }
+
+    public class CheckOutEndpointRequest
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string CheckInToken { get; set; } = string.Empty; // Assumed to be GymId
     }
 }
-public class CheckOutEndpointRequest
-{
-    public string UserId { get; set; }
-    public string CheckOutToken { get; set; }
-}
-
-

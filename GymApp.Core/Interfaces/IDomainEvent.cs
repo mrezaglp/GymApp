@@ -1,6 +1,8 @@
-
 using MediatR;
-namespace GymApp.Core.Interfaces;
-public interface IDomainEvent : IEvent, INotification, Intent
+
+namespace GymApp.Core.Common
 {
+    public interface IDomainEvent : INotification
+    {
+    }
 }

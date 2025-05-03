@@ -1,10 +1,15 @@
 using Ardalis.Specification;
 using GymApp.Core.Models;
+using Microsoft.EntityFrameworkCore;
 
-public class GetAllGymUsersSpec : Specification<Gym,List<User>>
+namespace GymApp.Application.Specifications
 {
-    public GetAllGymUsersSpec(string id)
+    public class GetAllGymUsersSpec : Specification<Gym>
     {
-        Query.Where(g => g.Id == id);
+        public GetAllGymUsersSpec(string gymId)
+        {
+            Query.Where(g => g.Id == gymId && !g.IsDeleted)
+                 .Include(g => g.Memberships.Where(m => !m.IsDeleted && m.StartDate <= DateTime.UtcNow && m.EndDate >= DateTime.UtcNow));
+        }
     }
 }
